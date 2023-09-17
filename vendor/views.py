@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth .decorators import login_required, user_passes_test
 from accounts.views import check_role_vendor
 from menu.models import Category, FoodItem
-from menu.forms import CategoryForm
+from menu.forms import CategoryForm, FoodItemForm
 
 # Create your views here.
 
@@ -105,7 +105,7 @@ def editCategory(request, pk):
 
         if form.is_valid():
             category = form.save(commit=False)
-            category.vendor = vendor = Vendor.objects.get(user=request.user)
+            category.vendor = Vendor.objects.get(user=request.user)
             category.save()
 
             messages.success(request, 'Category updated successfully!')
@@ -131,4 +131,66 @@ def deleteCategory(request, pk):
     messages.success(request, 'Category has been deleted successfully!')
     return redirect('menu-builder')
 
+
+@login_required(login_url='login')
+@user_passes_test(check_role_vendor)
+def addFood(request):
+    if request.method == 'POST':
+        form = FoodItemForm(request.POST, request.FILES)
+        print(form)
+
+        if form.is_valid():
+            food = form.save(commit=False)
+            food.vendor  = Vendor.objects.get(user=request.user)
+            food.save()
+
+            messages.success(request, 'Food Item updated successfully!')
+            return redirect('fooditems-by-category', food.category.id)
+        else:
+            messages.error(request, 'Something went wrong. Please try again!')
+    else:
+        form = FoodItemForm()
+        form.fields['category'].queryset = Category.objects.filter(vendor=Vendor.objects.get(user=request.user))
+
+    context = {
+        'form': form,
+    }
+
+    return render(request, 'vendor/add-food.html', context)
     
+
+@login_required(login_url='login')
+@user_passes_test(check_role_vendor)
+def editFood(request, pk):
+    food = get_object_or_404(FoodItem, pk=pk)
+
+    if request.method == 'POST':
+        form = FoodItemForm(request.POST, instance=food)
+
+        if form.is_valid():
+            food = form.save(commit=False)
+            food.vendor = Vendor.objects.get(user=request.user)
+            food.save()
+
+            messages.success(request, 'Food Item updated successfully!')
+            return redirect('menu-builder')
+        else:
+            messages.error(request, 'Something went wrong. Please try again!')
+    else:
+        form = FoodItemForm(instance=food)
+
+    context = {
+        'form': form,
+        'food': food,
+    }
+
+    return render(request, 'vendor/edit-food.html', context)
+
+
+@login_required(login_url='login')
+@user_passes_test(check_role_vendor)
+def deleteFood(request, pk):
+    food = get_object_or_404(FoodItem, pk=pk)
+    food.delete()
+    messages.success(request, 'food has been deleted successfully!')
+    return redirect('fooditems-by-category', food.category.id)
